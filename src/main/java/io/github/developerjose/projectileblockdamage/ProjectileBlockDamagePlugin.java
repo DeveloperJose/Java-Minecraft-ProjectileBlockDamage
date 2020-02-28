@@ -1,11 +1,8 @@
 package io.github.developerjose.projectileblockdamage;
 
-import net.minecraft.server.v1_14_R1.BlockPosition;
-import net.minecraft.server.v1_14_R1.PacketPlayOutBlockBreakAnimation;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
-import org.bukkit.craftbukkit.v1_14_R1.entity.CraftPlayer;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -16,13 +13,18 @@ import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.BlockVector;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
  * Inspired by https://bukkit.org/threads/projectile-block-damage.484909/
  *
  * @author DeveloperJose
+ * <p>
+ * TODO: Better radius configuration
+ * TODO: Interfaces for easier version updating
  */
 public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener {
     /**
@@ -31,14 +33,29 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
     private static int ID = Integer.MIN_VALUE;
 
     /**
-     * Contains the time a block was cracked (key) and the packet to fix it (value)
-     * Uses ConcurrentSkipListMap to avoid ConcurrentModificationException which happen with TreeMap
+     * Contains the time a block was cracked (key) and the information about that block
+     * Uses ConcurrentSkipListMap to avoid ConcurrentModificationException which happens with TreeMap
      */
-    private Map<Long, PacketPlayOutBlockBreakAnimation> mDamagedBlocks = new ConcurrentSkipListMap<Long, PacketPlayOutBlockBreakAnimation>();
+    private Map<Long, BlockDamageInfo> mDamagedBlocks = new ConcurrentSkipListMap<>();
+
+    /**
+     *
+     */
+    private NMSInterface mAPI;
+
+    /**
+     *
+     */
+    private World mWorld;
 
     @Override
     public void onEnable() {
         super.onEnable();
+        // Versioning
+        mAPI = new NMS_1_15_R1();
+
+        // Variables
+        mWorld = getServer().getWorlds().get(0);
 
         // Config
         saveDefaultConfig();
@@ -47,51 +64,80 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
         getServer().getPluginManager().registerEvents(this, this);
 
         // Runnable to remove cracked blocks
-        int regenSeconds = getConfig().getInt("regeneration");
-        final int regenMillis = regenSeconds * 1000;
-        int periodTicks = regenSeconds * 20;
+        int periodTicks = 30;
         new BukkitRunnable() {
             public void run() {
-                // Check how long the blocks have been cracked
-                List<PacketPlayOutBlockBreakAnimation> blocksToRemove = new ArrayList();
-                long currentTime = System.currentTimeMillis();
-                for (long damageStartTime : mDamagedBlocks.keySet()) {
-                    // If more time has passed than the allowed regen, prepare to delete the crack
-                    if (currentTime - damageStartTime > regenMillis) {
-                        blocksToRemove.add(mDamagedBlocks.get(damageStartTime));
-                        mDamagedBlocks.remove(damageStartTime);
-                    }
-                    // Since the values are ordered, then if we reach a time within the
-                    // allowed time frame the rest must also be within the allowed time
-                    else
-                        break;
-                }
+                List<BlockDamageInfo> blocksToRemove = getExpiredBlocks();
 
-                // Send crack fix packets to players
-                World w = getServer().getWorlds().get(0);
-                for (Player p : w.getPlayers())
-                    for (PacketPlayOutBlockBreakAnimation packet : blocksToRemove)
-                        ((CraftPlayer) p).getHandle().playerConnection.sendPacket(packet);
+                // If there are no blocks to remove, just stop the method
+                if (blocksToRemove.isEmpty())
+                    return;
+
+                // Send block crack fix packets to players
+                for (Player p : mWorld.getPlayers())
+                    for (BlockDamageInfo b : blocksToRemove) {
+                        b.mDamage = -1;
+                        mAPI.sendBlockBreak(p, b);
+                    }
             }
         }.runTaskTimer(this, 0, periodTicks);
+    }
+
+    private List<BlockDamageInfo> getExpiredBlocks() {
+        // Get the regen time from the configuration
+        int regenSeconds = getConfig().getInt("regeneration");
+        final int regenMillis = regenSeconds * 1000;
+
+        // Check how long the blocks have been cracked
+        List<BlockDamageInfo> expiredBlocks = new ArrayList();
+        long currentTime = System.currentTimeMillis();
+
+        for (long damageStartTime : mDamagedBlocks.keySet()) {
+            // If more time has passed than the allowed regen, prepare to delete the crack
+            if (currentTime - damageStartTime > regenMillis) {
+                expiredBlocks.add(mDamagedBlocks.get(damageStartTime));
+                mDamagedBlocks.remove(damageStartTime);
+            }
+            // Since the values are ordered, then if we reach a time within the
+            // allowed time frame the rest must also be within the allowed time
+            else
+                break;
+        }
+        return expiredBlocks;
     }
 
     private void crackBlock(Block b) {
         if (b.getType() == Material.AIR)
             return;
 
-        World w = getServer().getWorlds().get(0);
         int crackDamage = getConfig().getInt("damage");
-        BlockPosition bp = new BlockPosition(b.getX(), b.getY(), b.getZ());
-        ID++;
+        BlockVector bVector = b.getLocation().toVector().toBlockVector();
 
-        // Add to damaged blocks tracking list, to fix later
-        mDamagedBlocks.put(System.currentTimeMillis(), new PacketPlayOutBlockBreakAnimation(ID, bp, -1));
+        // Check if this block was previously cracked
+        BlockDamageInfo oDamageInfo = null;
+        for (BlockDamageInfo storedDamage : mDamagedBlocks.values()) {
+            if (storedDamage.mPosition.equals(bVector)) {
+                oDamageInfo = storedDamage;
+                break;
+            }
+        }
 
-        // Prepare packet and send to all players
-        PacketPlayOutBlockBreakAnimation packet = new PacketPlayOutBlockBreakAnimation(ID, bp, crackDamage);
-        for (Player p : w.getPlayers())
-            ((CraftPlayer) p).getHandle().playerConnection.sendPacket(packet);
+        // If not previously cracked, then add to damaged blocks tracking list to fix later
+        if (oDamageInfo == null) {
+            oDamageInfo = new BlockDamageInfo(ID, 0, bVector);
+            long damageStartTime = System.currentTimeMillis();
+            mDamagedBlocks.put(damageStartTime, oDamageInfo);
+            ID++;
+        }
+
+        // Damage the block, cap at 9
+        oDamageInfo.mDamage += crackDamage;
+        if (oDamageInfo.mDamage > 9)
+            oDamageInfo.mDamage = 9;
+
+        // Send to all players
+        for (Player p : mWorld.getPlayers())
+            mAPI.sendBlockBreak(p, oDamageInfo);
     }
 
     @EventHandler
@@ -120,20 +166,28 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
         // Get the nearby blocks next to the exploded ones to crack them
         World w = ev.getLocation().getWorld();
 
-        Set<BlockVector> set = new HashSet<BlockVector>();
-        int rx = getConfig().getInt("x-radius");
-        int ry = getConfig().getInt("y-radius");
-        int rz = getConfig().getInt("z-radius");
-        for (Block b : ev.blockList()) {
-            for (int x = -rx; x <= rx; x++)
-                for (int y = -ry; y <= ry; y++)
-                    for (int z = -rz; z <= rz; z++)
-                        set.add(new BlockVector(b.getLocation().add(x, y, z).toVector()));
-        }
+        ev.setCancelled(true);
+        ev.getLocation().getBlock().setType(Material.GOLD_BLOCK);
 
-        // Crack em
-        for (BlockVector v : set)
-            crackBlock(w.getBlockAt(v.toLocation(w)));
+
+        // TODO: Better settings?
+//        Set<BlockVector> set = new HashSet<BlockVector>();
+//        int rx = getConfig().getInt("x-radius");
+//        int ry = getConfig().getInt("y-radius");
+//        int rz = getConfig().getInt("z-radius");
+//        for (Block b : ev.blockList())
+//        for (int x = -1; x < 1; x++)
+//            for (int y = -1; y < 1; y++)
+//                for (int z = -1; z < 1; z++) {
+//                    Location loc2 = b.getLocation().add(x, y, z);
+//                    if (ev.getLocation().distance(loc2) > rx)
+//                        set.add(new BlockVector(loc2.toVector()));
+//                }
+//
+//
+//        // Crack em
+//        for (BlockVector v : set)
+//            crackBlock(w.getBlockAt(v.toLocation(w)));
 
     }
 }
