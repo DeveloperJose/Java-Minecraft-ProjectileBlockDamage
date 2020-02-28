@@ -64,7 +64,6 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
         getServer().getPluginManager().registerEvents(this, this);
 
         // Runnable to remove cracked blocks
-        int periodTicks = 30;
         new BukkitRunnable() {
             public void run() {
                 List<BlockDamageInfo> blocksToRemove = getExpiredBlocks();
@@ -80,13 +79,11 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
                         mAPI.sendBlockBreak(p, b);
                     }
             }
-        }.runTaskTimer(this, 0, periodTicks);
+        }.runTaskTimer(this, 0, getRegenCheckTicks());
     }
 
     private List<BlockDamageInfo> getExpiredBlocks() {
-        // Get the regen time from the configuration
-        int regenSeconds = getConfig().getInt("regeneration");
-        final int regenMillis = regenSeconds * 1000;
+        final int regenMillis = getRegenMillis();
 
         // Check how long the blocks have been cracked
         List<BlockDamageInfo> expiredBlocks = new ArrayList();
@@ -110,7 +107,6 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
         if (b.getType() == Material.AIR)
             return;
 
-        int crackDamage = getConfig().getInt("damage");
         BlockVector bVector = b.getLocation().toVector().toBlockVector();
 
         // Check if this block was previously cracked
@@ -131,7 +127,7 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
         }
 
         // Damage the block, cap at 9
-        oDamageInfo.mDamage += crackDamage;
+        oDamageInfo.mDamage += getBlockCrackDamage();
         if (oDamageInfo.mDamage > 9)
             oDamageInfo.mDamage = 9;
 
@@ -142,34 +138,30 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
 
     @EventHandler
     public void onProjectileHit(ProjectileHitEvent ev) {
-        Projectile pr = ev.getEntity();
-        ProjectileSource src = pr.getShooter();
+        Projectile projectile = ev.getEntity();
+        ProjectileSource src = projectile.getShooter();
 
         // Ignore projectiles not shot by players
-        if (!(src instanceof Player))
+        boolean shotByPlayer = src instanceof Player;
+        if (!shotByPlayer)
             return;
 
         // Check if the projectile is one of the allowed ones
-        boolean bArrow = (pr instanceof Arrow) && (getConfig().getBoolean("arrow"));
-        boolean bEgg = (pr instanceof Egg) && (getConfig().getBoolean("egg"));
-        boolean bSnowball = (pr instanceof Snowball) && (getConfig().getBoolean("snowball"));
+        boolean bArrow = (projectile instanceof Arrow) && (areArrowsAllowed());
+        boolean bEgg = (projectile instanceof Egg) && (areEggsAllowed());
+        boolean bSnowball = (projectile instanceof Snowball) && (areSnowballsAllowed());
         if (bArrow || bEgg || bSnowball)
             crackBlock(ev.getHitBlock());
     }
 
     @EventHandler
     public void onEntityExplode(EntityExplodeEvent ev) {
-        // Check if we crack blocks on explosion
-        if (!getConfig().getBoolean("explosion"))
+        // Check if we crack blocks on explosions
+        if (!areExplosionsAllowed())
             return;
-
-        // Get the nearby blocks next to the exploded ones to crack them
-        World w = ev.getLocation().getWorld();
 
         ev.setCancelled(true);
         ev.getLocation().getBlock().setType(Material.GOLD_BLOCK);
-
-
         // TODO: Better settings?
 //        Set<BlockVector> set = new HashSet<BlockVector>();
 //        int rx = getConfig().getInt("x-radius");
@@ -189,5 +181,37 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
 //        for (BlockVector v : set)
 //            crackBlock(w.getBlockAt(v.toLocation(w)));
 
+    }
+
+    public int getRegenMillis() {
+        return getRegenSeconds() * 1000;
+    }
+
+    public int getRegenSeconds() {
+        return getConfig().getInt("regen-seconds", 20);
+    }
+
+    public int getRegenCheckTicks() {
+        return getConfig().getInt("regen-check-ticks", 30);
+    }
+
+    public int getBlockCrackDamage() {
+        return getConfig().getInt("damage");
+    }
+
+    public boolean areExplosionsAllowed() {
+        return getConfig().getBoolean("explosion");
+    }
+
+    public boolean areArrowsAllowed() {
+        return getConfig().getBoolean("arrow");
+    }
+
+    public boolean areEggsAllowed() {
+        return getConfig().getBoolean("egg");
+    }
+
+    public boolean areSnowballsAllowed() {
+        return getConfig().getBoolean("snowball");
     }
 }

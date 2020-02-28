@@ -7,15 +7,19 @@ snowball: true
 explosion: true
 
 # The radius of explosion cracks.
-# The higher you go, the lower the TPS
 x-radius: 1
 y-radius: 1
 z-radius: 1
 
-# Time it takes a block to go back to normal (seconds).
-# The Minecraft client will remove all cracks after 15 seconds so setting a value higher than that won't have any impact.
-# The lower you go, the lower the TPS.
-regeneration: 5
+# Time it takes a block to go back to normal (seconds)
+# The Minecraft client will remove all cracks after 15-20 seconds (or so)
+# so setting a value higher than that probably won't have any impact.
+regen-seconds: 5
+
+# How often the server should check blocks to see if they are expired
+# AKA: The time they have existed is greater than the regen seconds
+# Remember, 20 ticks = 1 second
+regen-check-ticks: 30
 
 # 0–9 are the displayable destroy stages. Any other number resets the block cracking.
-damage: 5
+damage: 2
