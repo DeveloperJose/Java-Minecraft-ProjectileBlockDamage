@@ -1,5 +1,7 @@
-package io.github.developerjose.projectileblockdamage;
+package io.github.developerjose.projectileblockdamage.nms;
 
+import io.github.developerjose.projectileblockdamage.blockdamageapi.BlockDamageInfo;
+import io.github.developerjose.projectileblockdamage.blockdamageapi.NMSInterface;
 import net.minecraft.server.v1_15_R1.BlockPosition;
 import net.minecraft.server.v1_15_R1.PacketPlayOutBlockBreakAnimation;
 import org.bukkit.Server;

@@ -1,6 +1,9 @@
-package io.github.developerjose.projectileblockdamage;
+package io.github.developerjose.projectileblockdamage.plugin;
 
-import io.github.developerjose.projectileblockdamage.runnable.RemoveExpiredCracksRunnable;
+import io.github.developerjose.projectileblockdamage.blockdamageapi.BlockDamageInfo;
+import io.github.developerjose.projectileblockdamage.blockdamageapi.NMSInterface;
+import io.github.developerjose.projectileblockdamage.nms.NMS_1_15_R1;
+import io.github.developerjose.projectileblockdamage.plugin.runnable.RemoveExpiredCracksRunnable;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.*;
@@ -48,7 +51,14 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
     public void onEnable() {
         super.onEnable();
         // Versioning
-        mAPI = new NMS_1_15_R1();
+        String version = getServer().getClass().getPackage().getName().replace('.', ',').split(",")[3];
+        if (version.equals(""))
+            mAPI = new NMS_1_15_R1();
+        else {
+            getLogger().info("This Minecraft version is not supported. Disabling Plugin.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
 
         // Variables
         mPreferences = new PreferencesManager(getConfig());

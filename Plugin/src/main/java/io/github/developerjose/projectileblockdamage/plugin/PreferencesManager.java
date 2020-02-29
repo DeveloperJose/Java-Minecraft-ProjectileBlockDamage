@@ -1,4 +1,4 @@
-package io.github.developerjose.projectileblockdamage;
+package io.github.developerjose.projectileblockdamage.plugin;
 
 import org.bukkit.configuration.file.FileConfiguration;
 

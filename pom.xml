@@ -6,7 +6,23 @@
 
     <groupId>io.github.developerjose</groupId>
     <artifactId>ProjectileBlockDamage</artifactId>
-    <version>1.1</version>
+    <packaging>pom</packaging>
+    <version>1.1-SNAPSHOT</version>
+
+    <properties>
+        <bukkit.version>1.15.2-R0.1-SNAPSHOT</bukkit.version>
+
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.release>8</maven.compiler.release>
+    </properties>
+
+    <modules>
+        <module>API</module>
+        <module>Plugin</module>
+
+        <module>NMS_1_15_R1</module>
+    </modules>
 
     <repositories>
         <repository>
@@ -19,26 +35,9 @@
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
-            <version>1.15.2-R0.1-SNAPSHOT</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot</artifactId>
-            <version>1.15.2-R0.1-SNAPSHOT</version>
+            <version>${bukkit.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <directory>C:\Users\xeroj\Downloads\_LocalBackup\Local Games\Minecraft\Paper Server\plugins</directory>
-    </build>
-
-    <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-        <maven.compiler.release>8</maven.compiler.release>
-    </properties>
 
 </project>

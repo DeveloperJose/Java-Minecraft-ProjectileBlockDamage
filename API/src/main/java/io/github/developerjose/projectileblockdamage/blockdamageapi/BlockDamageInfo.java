@@ -1,4 +1,4 @@
-package io.github.developerjose.projectileblockdamage;
+package io.github.developerjose.projectileblockdamage.blockdamageapi;
 
 import org.bukkit.Location;
 
@@ -13,7 +13,7 @@ public class BlockDamageInfo {
         this.mLocation = location;
     }
 
-    public boolean isSameLocation(Location other){
+    public boolean isSameLocation(Location other) {
         // Location equals() checks: X, Y, Z, pitch, yaw
         // Vector equals() checks only X, Y, and Z
         return mLocation.toVector().equals(other.toVector());
