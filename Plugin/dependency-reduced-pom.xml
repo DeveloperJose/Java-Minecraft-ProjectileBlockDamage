@@ -25,6 +25,21 @@
       </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>Testing</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-shade-plugin</artifactId>
+            <configuration>
+              <outputFile>C:/Users/xeroj/Downloads/_LocalBackup/Local Games/Minecraft/Paper Server/plugins/ProjectileBlockDamage-${project.version}.jar</outputFile>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
   <dependencies>
     <dependency>
       <groupId>org.spigotmc</groupId>

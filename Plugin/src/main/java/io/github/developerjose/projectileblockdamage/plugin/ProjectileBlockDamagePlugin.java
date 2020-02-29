@@ -52,7 +52,7 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
         super.onEnable();
         // Versioning
         String version = getServer().getClass().getPackage().getName().replace('.', ',').split(",")[3];
-        if (version.equals(""))
+        if (version.equals("v1_15_R1"))
             mAPI = new NMS_1_15_R1();
         else {
             getLogger().info("This Minecraft version is not supported. Disabling Plugin.");

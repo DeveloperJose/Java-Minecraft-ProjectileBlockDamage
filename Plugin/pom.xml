@@ -25,13 +25,28 @@
         </dependency>
     </dependencies>
 
+    <profiles>
+        <profile>
+            <id>Testing</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-shade-plugin</artifactId>
+                        <configuration>
+                            <outputFile>C:/Users/xeroj/Downloads/_LocalBackup/Local Games/Minecraft/Paper Server/plugins/ProjectileBlockDamage-${project.version}.jar</outputFile>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
     <build>
         <directory>../target</directory>
         <finalName>ProjectileBlockDamage-${project.version}</finalName>
 
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.2.1</version>
                 <executions>
