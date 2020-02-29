@@ -1,5 +1,5 @@
 name: ProjectileBlockDamage
 main: io.github.developerjose.projectileblockdamage.plugin.ProjectileBlockDamagePlugin
 author: DeveloperJose
-version: "1.1"
+version: "1.2"
 api-version: "1.14"
