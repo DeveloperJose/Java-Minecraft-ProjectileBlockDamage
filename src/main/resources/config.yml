@@ -16,10 +16,10 @@ z-radius: 1
 # so setting a value higher than that probably won't have any impact.
 regen-seconds: 5
 
-# How often the server should check blocks to see if they are expired
-# AKA: The time they have existed is greater than the regen seconds
-# Remember, 20 ticks = 1 second
-regen-check-ticks: 30
+# How often the server should check blocks for regeneration (in ticks, and 20 ticks = 1 second)
+# If this is higher than 20 ticks, the regen will actually take a bit longer than what you specify
+# in regen-seconds but the server performance will be better
+regen-check-ticks: 20
 
-# 0–9 are the displayable destroy stages. Any other number resets the block cracking.
+# The damage per hit to a block. From 0 to 9 (max)
 damage: 2

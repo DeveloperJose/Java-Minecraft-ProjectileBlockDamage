@@ -1,5 +1,6 @@
 package io.github.developerjose.projectileblockdamage;
 
+import io.github.developerjose.projectileblockdamage.runnable.RemoveExpiredCracksRunnable;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -10,11 +11,7 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.BlockVector;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -24,7 +21,9 @@ import java.util.concurrent.ConcurrentSkipListMap;
  * @author DeveloperJose
  * <p>
  * TODO: Better radius configuration
- * TODO: Interfaces for easier version updating
+ * TODO: Interfaces for easier version
+ * TODO: Limit explosions to TNT-Primed?
+ * TODO: Different damage values for each projectile?
  */
 public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener {
     /**
@@ -36,15 +35,15 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
      * Contains the time a block was cracked (key) and the information about that block
      * Uses ConcurrentSkipListMap to avoid ConcurrentModificationException which happens with TreeMap
      */
-    private Map<Long, BlockDamageInfo> mDamagedBlocks = new ConcurrentSkipListMap<>();
+    public Map<Long, BlockDamageInfo> mDamagedBlocks = new ConcurrentSkipListMap<>();
 
     /**
-     *
+     * The NMS interface for this specific Minecraft server version
      */
-    private NMSInterface mAPI;
+    public NMSInterface mAPI;
 
     /**
-     *
+     * The main world of the server.
      */
     private World mWorld;
 
@@ -64,55 +63,27 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
         getServer().getPluginManager().registerEvents(this, this);
 
         // Runnable to remove cracked blocks
-        new BukkitRunnable() {
-            public void run() {
-                List<BlockDamageInfo> blocksToRemove = getExpiredBlocks();
-
-                // If there are no blocks to remove, just stop the method
-                if (blocksToRemove.isEmpty())
-                    return;
-
-                // Send block crack fix packets to players
-                for (Player p : mWorld.getPlayers())
-                    for (BlockDamageInfo b : blocksToRemove) {
-                        b.mDamage = -1;
-                        mAPI.sendBlockBreak(p, b);
-                    }
-            }
-        }.runTaskTimer(this, 0, getRegenCheckTicks());
+        new RemoveExpiredCracksRunnable(this).runTaskTimer(this, 0, getRegenCheckTicks());
     }
 
-    private List<BlockDamageInfo> getExpiredBlocks() {
-        final int regenMillis = getRegenMillis();
+    @Override
+    public void onDisable() {
+        super.onDisable();
 
-        // Check how long the blocks have been cracked
-        List<BlockDamageInfo> expiredBlocks = new ArrayList();
-        long currentTime = System.currentTimeMillis();
-
-        for (long damageStartTime : mDamagedBlocks.keySet()) {
-            // If more time has passed than the allowed regen, prepare to delete the crack
-            if (currentTime - damageStartTime > regenMillis) {
-                expiredBlocks.add(mDamagedBlocks.get(damageStartTime));
-                mDamagedBlocks.remove(damageStartTime);
-            }
-            // Since the values are ordered, then if we reach a time within the
-            // allowed time frame the rest must also be within the allowed time
-            else
-                break;
-        }
-        return expiredBlocks;
+        // Clear cracked blocks map. No need to send packets as clients will
+        // automatically clear them after a little while
+        mDamagedBlocks.clear();
     }
+
 
     private void crackBlock(Block b) {
         if (b.getType() == Material.AIR)
             return;
 
-        BlockVector bVector = b.getLocation().toVector().toBlockVector();
-
         // Check if this block was previously cracked
         BlockDamageInfo oDamageInfo = null;
         for (BlockDamageInfo storedDamage : mDamagedBlocks.values()) {
-            if (storedDamage.mPosition.equals(bVector)) {
+            if (storedDamage.isSameLocation(b.getLocation())) {
                 oDamageInfo = storedDamage;
                 break;
             }
@@ -120,20 +91,20 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
 
         // If not previously cracked, then add to damaged blocks tracking list to fix later
         if (oDamageInfo == null) {
-            oDamageInfo = new BlockDamageInfo(ID, 0, bVector);
+            oDamageInfo = new BlockDamageInfo(ID, 0, b.getLocation());
             long damageStartTime = System.currentTimeMillis();
             mDamagedBlocks.put(damageStartTime, oDamageInfo);
             ID++;
         }
 
         // Damage the block, cap at 9
+        // TODO: Break blocks if damaged and config allows it
         oDamageInfo.mDamage += getBlockCrackDamage();
         if (oDamageInfo.mDamage > 9)
             oDamageInfo.mDamage = 9;
 
-        // Send to all players
-        for (Player p : mWorld.getPlayers())
-            mAPI.sendBlockBreak(p, oDamageInfo);
+        // Send packet update
+        mAPI.sendBlockBreak(getServer(), oDamageInfo);
     }
 
     @EventHandler
@@ -156,6 +127,7 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
 
     @EventHandler
     public void onEntityExplode(EntityExplodeEvent ev) {
+        // TODO: Only allow certain types of explosions (TNT-Primed)
         // Check if we crack blocks on explosions
         if (!areExplosionsAllowed())
             return;
