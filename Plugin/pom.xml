@@ -23,6 +23,12 @@
             <artifactId>NMS_1_15_R1</artifactId>
             <version>${project.parent.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>io.github.developerjose</groupId>
+            <artifactId>NMS_1_14_R1</artifactId>
+            <version>${project.parent.version}</version>
+        </dependency>
     </dependencies>
 
     <profiles>

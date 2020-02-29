@@ -44,20 +44,19 @@ public class PreferencesManager {
         return mConfig.getInt("damage-arrow");
     }
 
-
     public int getEggDamage() {
         return mConfig.getInt("damage-egg");
     }
-
 
     public int getSnowballDamage() {
         return mConfig.getInt("damage-snowball");
     }
 
-
     public int getExplosionDamage() {
         return mConfig.getInt("damage-explosion");
     }
+
+    public int getExplosionRadius() { return mConfig.getInt("radius-explosion"); }
 
     /********************* REGEN ********************/
     public int getRegenSeconds() {

@@ -4,6 +4,7 @@ import io.github.developerjose.projectileblockdamage.blockdamageapi.BlockDamageI
 import io.github.developerjose.projectileblockdamage.blockdamageapi.NMSInterface;
 import io.github.developerjose.projectileblockdamage.nms.NMS_1_15_R1;
 import io.github.developerjose.projectileblockdamage.plugin.runnable.RemoveExpiredCracksRunnable;
+import nms.NMS_1_14_R1;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.*;
@@ -13,17 +14,18 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
+import org.bukkit.util.BlockVector;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
- * Inspired by https://bukkit.org/threads/projectile-block-damage.484909/
+ * Initial request from https://bukkit.org/threads/projectile-block-damage.484909/
+ * Inspiration and some ideas taken from http://www.spigotmc.org/resources/block-damage.19958/
  *
  * @author DeveloperJose
- * <p>
- * TODO: Better radius configuration
- * TODO: Interfaces for easier version
  */
 public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener {
     /**
@@ -50,18 +52,11 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
     @Override
     public void onEnable() {
         super.onEnable();
-        // Versioning
-        String version = getServer().getClass().getPackage().getName().replace('.', ',').split(",")[3];
-        if (version.equals("v1_15_R1"))
-            mAPI = new NMS_1_15_R1();
-        else {
-            getLogger().info("This Minecraft version is not supported. Disabling Plugin.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
-
         // Variables
         mPreferences = new PreferencesManager(getConfig());
+
+        // NMS Version Management
+        if (!setupNMS()) return;
 
         // Config
         saveDefaultConfig();
@@ -73,6 +68,20 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
         new RemoveExpiredCracksRunnable(this).runTaskTimer(this, 0, mPreferences.getRegenCheckTicks());
     }
 
+    private boolean setupNMS() {
+        String version = getServer().getClass().getPackage().getName().replace('.', ',').split(",")[3];
+        if (version.equals("v1_15_R1")) {
+            mAPI = new NMS_1_15_R1();
+        } else if (version.equals("v1_14_R1")) {
+            mAPI = new NMS_1_14_R1();
+        } else {
+            getLogger().info(String.format("This Minecraft version (%s) is not supported. Disabling Plugin.", version));
+            getServer().getPluginManager().disablePlugin(this);
+            return false;
+        }
+        return true;
+    }
+
     @Override
     public void onDisable() {
         super.onDisable();
@@ -82,11 +91,20 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
         mDamagedBlocks.clear();
     }
 
+    private boolean isDisallowedBlock(Block b) {
+        // Don't crack air, water, lava, and passable blocks (signs, flowers, tall grass)
+        return (b.isEmpty() || b.isLiquid() || b.isPassable()
+                // Don't crack bedrock
+                || b.getType() == Material.BEDROCK
+
+        );
+    }
 
     private void crackBlock(Block b, int damage) {
-        if (b.getType() == Material.AIR)
+        if (isDisallowedBlock(b))
             return;
 
+        // Don't crack more blocks if we are at full capacity
         if (mDamagedBlocks.size() > mPreferences.getMaxCrackedBlocks())
             return;
 
@@ -143,7 +161,6 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
             crackBlock(ev.getHitBlock(), mPreferences.getEggDamage());
         else if (isSnowball)
             crackBlock(ev.getHitBlock(), mPreferences.getSnowballDamage());
-
     }
 
     @EventHandler
@@ -152,28 +169,46 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
         if (!mPreferences.areExplosionsAllowed())
             return;
 
-        ev.setCancelled(true);
-        ev.getLocation().getBlock().setType(Material.GOLD_BLOCK);
-        // TODO: Better settings?
-//        Set<BlockVector> set = new HashSet<BlockVector>();
-//        int rx = getConfig().getInt("x-radius");
-//        int ry = getConfig().getInt("y-radius");
-//        int rz = getConfig().getInt("z-radius");
-//        for (Block b : ev.blockList())
-//        for (int x = -1; x < 1; x++)
-//            for (int y = -1; y < 1; y++)
-//                for (int z = -1; z < 1; z++) {
-//                    Location loc2 = b.getLocation().add(x, y, z);
-//                    if (ev.getLocation().distance(loc2) > rx)
-//                        set.add(new BlockVector(loc2.toVector()));
-//                }
-//
-//
-//        // Crack em
-//        for (BlockVector v : set)
-//            crackBlock(w.getBlockAt(v.toLocation(w)));
+        // Optimization: Store the (hash-safe) BlockVector positions of the blocks
+        // which will be blown up inside of a HashSet for use in the radius check
+        Set<BlockVector> set = new HashSet<>();
+        for (Block b : ev.blockList())
+            set.add(b.getLocation().toVector().toBlockVector());
 
+        // We will only crack blocks that are within the volume of a sphere
+        // Mathematics: https://www.geeksforgeeks.org/check-whether-a-point-lies-inside-a-sphere-or-not/
+        int cx = ev.getLocation().getBlockX();
+        int cy = ev.getLocation().getBlockY();
+        int cz = ev.getLocation().getBlockZ();
+        int radius = mPreferences.getExplosionRadius();
+        int radiusSquared = radius * radius;
+
+        for (int x = cx - radius; x < cx + radius; x++) {
+            for (int y = cy - radius; y < cy + radius; y++) {
+                for (int z = cz - radius; z < cz + radius; z++) {
+                    // Don't consider disallowed blocks, no loops so O(1) time
+                    Block currentBlock = ev.getLocation().getWorld().getBlockAt(x, y, z);
+                    if (isDisallowedBlock(currentBlock))
+                        continue;
+
+                    // Don't consider blocks which are going to be blown up
+                    // Because of our earlier optimization, this check will run in O(1) time
+                    BlockVector currentBlockVector = new BlockVector(x, y, z);
+                    if (set.contains(currentBlockVector))
+                        continue;
+
+                    int deltaXSquared = (x - cx) * (x - cx);
+                    int deltaYSquared = (y - cy) * (y - cy);
+                    int deltaZSquared = (z - cz) * (z - cz);
+
+                    // Outside of radius
+                    if (deltaXSquared + deltaYSquared + deltaZSquared >= radiusSquared)
+                        continue;
+
+                    // Inside of radius
+                    crackBlock(currentBlock, mPreferences.getExplosionDamage());
+                }
+            }
+        }
     }
-
-
 }
