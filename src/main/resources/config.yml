@@ -1,10 +1,10 @@
 # Whether certain projectiles will crack blocks when they hit them
-arrow: true
-egg: true
-snowball: true
+allow-arrow: true
+allow-egg: true
+allow-snowball: true
 
 # Whether explosions will crack blocks around them
-explosion: true
+allow-explosion: true
 
 # The radius of explosion cracks.
 x-radius: 1
@@ -23,3 +23,6 @@ regen-check-ticks: 20
 
 # The damage per hit to a block. From 0 to 9 (max)
 damage: 2
+
+# Should we break blocks if they reach a cumulative damage of 10 or above?
+allow-damage-break: false

@@ -22,7 +22,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
  * <p>
  * TODO: Better radius configuration
  * TODO: Interfaces for easier version
- * TODO: Limit explosions to TNT-Primed?
  * TODO: Different damage values for each projectile?
  */
 public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener {
@@ -97,11 +96,17 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
             ID++;
         }
 
-        // Damage the block, cap at 9
-        // TODO: Break blocks if damaged and config allows it
+        // Damage the block
         oDamageInfo.mDamage += getBlockCrackDamage();
-        if (oDamageInfo.mDamage > 9)
+        if (oDamageInfo.mDamage > 9) {
+            // The block is damaged above the limit, break if allowed in the config
+            if (isDamageBreakAllowed()) {
+                oDamageInfo.mLocation.getBlock().breakNaturally();
+                return;
+            }
+            // Cap at 9 if not allowed to break
             oDamageInfo.mDamage = 9;
+        }
 
         // Send packet update
         mAPI.sendBlockBreak(getServer(), oDamageInfo);
@@ -127,7 +132,6 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
 
     @EventHandler
     public void onEntityExplode(EntityExplodeEvent ev) {
-        // TODO: Only allow certain types of explosions (TNT-Primed)
         // Check if we crack blocks on explosions
         if (!areExplosionsAllowed())
             return;
@@ -172,18 +176,22 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
     }
 
     public boolean areExplosionsAllowed() {
-        return getConfig().getBoolean("explosion");
+        return getConfig().getBoolean("allow-explosion");
     }
 
     public boolean areArrowsAllowed() {
-        return getConfig().getBoolean("arrow");
+        return getConfig().getBoolean("allow-arrow");
     }
 
     public boolean areEggsAllowed() {
-        return getConfig().getBoolean("egg");
+        return getConfig().getBoolean("allow-egg");
     }
 
     public boolean areSnowballsAllowed() {
-        return getConfig().getBoolean("snowball");
+        return getConfig().getBoolean("allow-snowball");
+    }
+
+    public boolean isDamageBreakAllowed() {
+        return getConfig().getBoolean("allow-damage-break");
     }
 }
