@@ -5,7 +5,7 @@
     <parent>
         <artifactId>ProjectileBlockDamage</artifactId>
         <groupId>io.github.developerjose</groupId>
-        <version>1.1-SNAPSHOT</version>
+        <version>1.2-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -15,19 +15,19 @@
         <dependency>
             <groupId>io.github.developerjose</groupId>
             <artifactId>API</artifactId>
-            <version>${project.parent.version}</version>
+            <version>${parent.version}</version>
         </dependency>
 
         <dependency>
             <groupId>io.github.developerjose</groupId>
             <artifactId>NMS_1_15_R1</artifactId>
-            <version>${project.parent.version}</version>
+            <version>${parent.version}</version>
         </dependency>
 
         <dependency>
             <groupId>io.github.developerjose</groupId>
             <artifactId>NMS_1_14_R1</artifactId>
-            <version>${project.parent.version}</version>
+            <version>${parent.version}</version>
         </dependency>
     </dependencies>
 
