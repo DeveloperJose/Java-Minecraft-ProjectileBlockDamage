@@ -19,7 +19,7 @@ import org.bukkit.util.BlockVector;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Initial request from https://bukkit.org/threads/projectile-block-damage.484909/
@@ -29,15 +29,9 @@ import java.util.concurrent.ConcurrentSkipListMap;
  */
 public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener {
     /**
-     * Unique identifier used in the Packet for each crack
+     * Contains the position of a cracked block (key) and the information about that block
      */
-    private static int ID = Integer.MIN_VALUE;
-
-    /**
-     * Contains the time a block was cracked (key) and the information about that block
-     * Uses ConcurrentSkipListMap to avoid ConcurrentModificationException which happens with TreeMap
-     */
-    public Map<Long, BlockDamageInfo> mDamagedBlocks = new ConcurrentSkipListMap<>();
+    public Map<BlockVector, BlockDamageInfo> mDamagedBlocks = new ConcurrentHashMap<>();
 
     /**
      * The NMS interface for this specific Minecraft server version
@@ -96,43 +90,36 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
         return (b.isEmpty() || b.isLiquid() || b.isPassable()
                 // Don't crack bedrock
                 || b.getType() == Material.BEDROCK
-
         );
     }
 
-    private void crackBlock(Block b, int damage) {
-        if (isDisallowedBlock(b))
+    private void crackBlock(Block block, int damage) {
+        if (isDisallowedBlock(block))
             return;
 
         // Don't crack more blocks if we are at full capacity
         if (mDamagedBlocks.size() > mPreferences.getMaxCrackedBlocks())
             return;
 
+        // Hashable position vector
+        BlockVector blockVector = block.getLocation().toVector().toBlockVector();
+
         // Check if this block was previously cracked
-        BlockDamageInfo oDamageInfo = null;
-        for (BlockDamageInfo storedDamage : mDamagedBlocks.values()) {
-            if (storedDamage.isSameLocation(b.getLocation())) {
-                oDamageInfo = storedDamage;
-                break;
-            }
-        }
+        BlockDamageInfo oDamageInfo = mDamagedBlocks.get(blockVector);
 
         // If not previously cracked, then add to damaged blocks tracking list to fix later
         if (oDamageInfo == null) {
-            oDamageInfo = new BlockDamageInfo(ID, 0, b.getLocation());
-            long damageStartTime = System.currentTimeMillis();
-            mDamagedBlocks.put(damageStartTime, oDamageInfo);
-            ID++;
+            oDamageInfo = new BlockDamageInfo(block, 0);
+            mDamagedBlocks.put(blockVector, oDamageInfo);
         }
 
         // Damage the block
         oDamageInfo.mDamage += damage;
         if (oDamageInfo.mDamage > 9) {
             // The block is damaged above the limit, break if allowed in the config
-            if (mPreferences.isDamageBreakAllowed()) {
-                oDamageInfo.mLocation.getBlock().breakNaturally();
-                return;
-            }
+            if (mPreferences.isDamageBreakAllowed())
+                block.breakNaturally();
+
             // Cap at 9 if not allowed to break
             oDamageInfo.mDamage = 9;
         }
@@ -168,6 +155,10 @@ public class ProjectileBlockDamagePlugin extends JavaPlugin implements Listener 
         // Check if we crack blocks on explosions
         if (!mPreferences.areExplosionsAllowed())
             return;
+
+        // Check if explosions destroy blocks
+        if (!mPreferences.explosionsDestroyBlocks())
+            ev.blockList().clear();
 
         // Optimization: Store the (hash-safe) BlockVector positions of the blocks
         // which will be blown up inside of a HashSet for use in the radius check

@@ -14,6 +14,10 @@ public class PreferencesManager {
     }
 
     /******************** BASIC CONFIG ********************/
+    public boolean explosionsDestroyBlocks() {
+        return mConfig.getBoolean("explosions-destroy-blocks");
+    }
+
     public int getMaxCrackedBlocks() {
         return mConfig.getInt("max-blocks");
     }
@@ -56,7 +60,9 @@ public class PreferencesManager {
         return mConfig.getInt("damage-explosion");
     }
 
-    public int getExplosionRadius() { return mConfig.getInt("radius-explosion"); }
+    public int getExplosionRadius() {
+        return mConfig.getInt("radius-explosion");
+    }
 
     /********************* REGEN ********************/
     public int getRegenSeconds() {

@@ -1,21 +1,23 @@
 package io.github.developerjose.projectileblockdamage.blockdamageapi;
 
-import org.bukkit.Location;
+import org.bukkit.block.Block;
 
 public class BlockDamageInfo {
-    public int mID;
+    /**
+     * Unique identifier used in the Packet for each crack
+     */
+    private static int ID = Integer.MIN_VALUE;
+
+    public Block mBlock;
     public int mDamage;
-    public Location mLocation;
+    public long mDamageStartTimeMillis;
+    public int mID;
 
-    public BlockDamageInfo(int id, int damage, Location location) {
-        this.mID = id;
+    public BlockDamageInfo(Block block, int damage) {
+        this.mBlock = block;
         this.mDamage = damage;
-        this.mLocation = location;
-    }
-
-    public boolean isSameLocation(Location other) {
-        // Location equals() checks: X, Y, Z, pitch, yaw
-        // Vector equals() checks only X, Y, and Z
-        return mLocation.toVector().equals(other.toVector());
+        this.mDamageStartTimeMillis = System.currentTimeMillis();
+        this.mID = ID;
+        ID++;
     }
 }
