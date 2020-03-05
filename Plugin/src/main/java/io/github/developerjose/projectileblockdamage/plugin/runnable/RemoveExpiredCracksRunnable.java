@@ -23,16 +23,16 @@ public class RemoveExpiredCracksRunnable extends BukkitRunnable {
 
         for (final Map.Entry<BlockVector, BlockDamageInfo> entry : mPlugin.mDamagedBlocks.entrySet()) {
             BlockDamageInfo bdInfo = entry.getValue();
-
             long crackDuration = currentTime - bdInfo.mDamageStartTimeMillis;
+
             if (crackDuration >= maxCrackDuration) {
                 // Get block damage information and remove it from the map
                 mPlugin.mDamagedBlocks.remove(entry.getKey());
 
                 // Fix the crack
                 bdInfo.mDamage = -1;
-                mPlugin.mAPI.sendBlockBreak(getServer(), bdInfo);
             }
+            mPlugin.mAPI.sendBlockBreak(getServer(), bdInfo);
         }
     }
 }
